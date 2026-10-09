@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lecteur multipistes</title>
+<meta name="theme-color" content="#121417">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Multipistes">
+<link rel="stylesheet" href="styles.css">
+<script src="themes.js"></script>
+<script src="version.js"></script>
+</head>
+<body>
+<header class="bar">
+  <h1>Lecteur multipistes</h1>
+  <button id="open-settings" type="button" aria-haspopup="dialog">⚙ Réglages</button>
+</header>
+<div id="update" class="banner" hidden role="status">
+  <span id="update-text">Une nouvelle version est disponible.</span>
+  <button id="update-go" type="button">Mettre à jour</button>
+</div>
+<main>
+  <details id="drive-panel" open>
+    <summary>Google Drive</summary>
+    <div class="row">
+      <input id="key" type="password" placeholder="Clé API" aria-label="Clé API Google" autocomplete="off">
+      <input id="root" type="text" placeholder="ID du dossier racine" aria-label="Identifiant du dossier racine" autocomplete="off">
+      <button id="list" type="button">Lister</button>
+    </div>
+    <div id="songs" class="list" aria-label="Morceaux Drive"></div>
+  </details>
+  <details id="local-panel">
+    <summary>Sur cet appareil (hors ligne)</summary>
+    <div id="local" class="list" aria-label="Morceaux disponibles hors ligne"></div>
+  </details>
+  <details>
+    <summary>Fichiers locaux (.opus)</summary>
+    <input type="file" id="f" accept=".opus,.ogg,audio/ogg" multiple aria-label="Choisir des fichiers Opus">
+  </details>
+
+  <details id="converter">
+    <summary>Convertir des M4A en Opus (outil)</summary>
+    <p>L'encodeur est <strong>figé</strong> : toutes les pistes d'un morceau doivent être converties avec exactement les mêmes réglages pour rester alignées.</p>
+    <table id="profile-table" class="kv" aria-label="Encodeur et réglages"></table>
+    <div class="row"><button id="dl-encoder-info" type="button">Télécharger les infos de l'encodeur (JSON)</button></div>
+    <div class="row">
+      <label for="conv-song">Nom du morceau</label>
+      <input id="conv-song" type="text" placeholder="Artiste - Titre (nom du ZIP)" autocomplete="off">
+    </div>
+    <div class="row">
+      <input type="file" id="conv-files" accept=".zip,.m4a,application/zip,audio/mp4,audio/x-m4a" multiple aria-label="Choisir le ZIP du morceau ou ses fichiers M4A">
+      <button id="conv-run" class="primary" type="button" disabled>Convertir</button>
+    </div>
+    <label class="chk"><input type="checkbox" id="conv-termine" checked> Ajouter le fichier <code>_termine</code> (le morceau apparaît dans la liste Drive du lecteur)</label>
+    <p class="muted"><strong>Vous pouvez choisir directement le ZIP du morceau</strong> (JSON, paroles et .m4a) : les JSON et les paroles sont repris tels quels dans le ZIP de sortie, les .m4a sont convertis. Sinon, choisissez les .m4a.</p>
+    <p class="muted">Le premier lancement télécharge environ 10 Mo (encodeur), puis il reste disponible hors ligne. <code>original.m4a</code> devient <code>original.opus</code> ; les autres pistes vont dans <code>stems/</code>.</p>
+    <p class="muted">Composants tiers embarqués : FFmpeg (licence GPL-2.0 ou ultérieure), libopus, opusscript. Voir <code>LICENSES.md</code>.</p>
+    <div id="conv-list" role="status"></div>
+    <p id="conv-summary"></p>
+    <div class="row"><button id="conv-zip" type="button" hidden>Télécharger le ZIP</button><button id="conv-report" type="button" hidden>Télécharger le rapport (JSON)</button></div>
+  </details>
+
+  <div id="status" aria-live="polite"></div>
+  <div id="msg" role="alert"></div>
+  <p id="song-info"></p>
+  <p id="info"></p>
+  <section id="now" class="card" hidden aria-label="Position musicale">
+    <div class="now-row"><span id="barbeat"></span><span id="keyname"></span><span id="secname"></span></div>
+    <div class="chords">
+      <div><span class="lbl">Accord</span><strong id="chord-now" class="chord">–</strong></div>
+      <div><span class="lbl" id="next-lbl">Suivant</span><span id="chord-next" class="chord next"></span></div>
+    </div>
+  </section>
+  <div id="map" class="map" role="group" aria-label="Structure du morceau : touchez une section pour la boucler" hidden></div>
+  <details id="seclist" hidden><summary>Liste des sections</summary><div id="secs" class="secs"></div></details>
+  <details id="lyrics-panel" open hidden><summary>Paroles</summary><div id="lyrics" class="lyrics"></div></details>
+  <div id="tracks"></div>
+
+  <div id="transport">
+    <div class="row">
+      <button id="prev-bar" type="button" aria-label="Mesure précédente">⏮</button>
+      <button id="play" class="primary" type="button" disabled>▶ Lecture</button>
+      <button id="next-bar" type="button" aria-label="Mesure suivante">⏭</button>
+      <label class="vol"><span class="vh">Volume général</span><span aria-hidden="true">🔊</span>
+        <input type="range" id="master" min="0" max="100" step="1" value="100" aria-label="Volume général"><output id="master-val" for="master">100 %</output></label>
+      <span id="time">0:00.0 / 0:00.0</span>
+    </div>
+    <input type="range" id="pos" min="0" max="0" value="0" step="1" disabled aria-label="Position dans le morceau">
+    <div class="row" id="secrow" hidden>
+      <label class="chk"><input type="checkbox" id="secloop" checked> Boucler la section sélectionnée</label>
+      <span id="secloop-label" class="muted">Aucune section sélectionnée</span>
+    </div>
+    <details id="tempo-panel">
+      <summary id="tempo-sum">Vitesse et transposition</summary>
+      <div class="row">
+        <label class="vol" for="speed"><span>Vitesse</span>
+          <input type="range" id="speed" min="50" max="150" step="5" value="100" aria-valuetext="100 %"><output id="speed-val" for="speed">100 %</output></label>
+      </div>
+      <div class="row" role="group" aria-label="Transposition">
+        <span>Transposer</span>
+        <button id="semi-m2" type="button" aria-label="Descendre d'un ton (2 demi-tons)">−1 ton</button>
+        <button id="semi-m1" type="button" aria-label="Descendre d'un demi-ton">−½</button>
+        <output id="semi-val" aria-live="polite">0 demi-ton</output>
+        <button id="semi-p1" type="button" aria-label="Monter d'un demi-ton">+½</button>
+        <button id="semi-p2" type="button" aria-label="Monter d'un ton (2 demi-tons)">+1 ton</button>
+      </div>
+      <div class="row"><button id="tempo-reset" type="button" disabled>Revenir à 100 % et 0 demi-ton</button></div>
+      <p id="tempo-info" class="muted" role="status"></p>
+      <p class="muted">La hauteur reste la même quand on change la vitesse. Les accords et la tonalité affichés suivent la transposition ; la notation Nashville ne change pas (elle est relative à la tonalité). La vitesse est mémorisée, la transposition revient à 0 à chaque nouveau morceau. Les pistes muettes ne sont pas calculées pendant un étirement.</p>
+    </details>
+    <details>
+      <summary>Boucle et calage</summary>
+      <div class="row">
+        <label for="snap">Caler les sauts sur</label>
+        <select id="snap"><option value="beat">le temps</option><option value="bar">la mesure</option><option value="free">rien (libre)</option></select>
+      </div>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="loop"> Boucle de</label>
+        <input type="number" id="a" value="0" step="0.5" min="0" aria-label="Début de boucle en secondes"> à
+        <input type="number" id="b" value="4" step="0.5" min="0" aria-label="Fin de boucle en secondes"> s
+      </div>
+      <div class="row">
+        <button id="set-a" type="button">A ici</button>
+        <button id="set-b" type="button">B ici</button>
+        <label class="chk"><input type="checkbox" id="merge"> Regrouper les sections identiques</label>
+      </div>
+    </details>
+  </div>
+</main>
+
+<dialog id="settings" aria-labelledby="settings-title">
+  <form method="dialog">
+    <h2 id="settings-title">Réglages</h2>
+    <label for="theme">Thème</label>
+    <select id="theme"></select>
+    <label for="chord-notation">Notation des accords</label>
+    <select id="chord-notation"><option value="pop">Pop (Dm, F, C)</option><option value="jazz">Jazz (D-, F, C)</option><option value="nashville">Nashville (2-, 4, 1)</option></select>
+    <label for="chord-level">Niveau de détail des accords</label>
+    <select id="chord-level"><option value="basic">Basique</option><option value="simple">Simple</option><option value="complex">Complexe</option></select>
+    <label for="stretch-quality">Qualité de l'étirement (vitesse et transposition)</label>
+    <select id="stretch-quality"><option value="default">Standard</option><option value="cheaper">Économique (moins de calcul)</option></select>
+    <p>Version <strong id="ver"></strong></p>
+    <div class="row"><button id="check-update" type="button">Vérifier les mises à jour</button></div>
+    <p id="storage" role="status"></p>
+    <div class="row"><button id="clear-cache" type="button">Vider le cache audio</button></div>
+    <div class="row"><button value="close" class="primary">Fermer</button></div>
+  </form>
+</dialog>
+
+<script src="vendor/opus-decoder.min.js"></script>
+<script src="opus-pack.js"></script>
+<script src="convert-core.js"></script>
+<script type="module" src="app.js"></script>
+<script type="module" src="converter.js"></script>
+</body>
+</html>
