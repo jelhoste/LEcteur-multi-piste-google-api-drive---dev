@@ -41,8 +41,13 @@ Le mode « Automatique » suit le système (sombre, clair, et contraste élevé 
 - **Clavier** : Espace lecture/pause, flèches gauche/droite mesure précédente/suivante.
 - Chaque fonctionnalité se masque seule si le fichier correspondant est absent ou illisible.
 
+## Écran principal
+- **♪ Morceaux** (en-tête) ouvre la liste : Drive (« Actualiser la liste »), morceaux hors ligne, fichiers .opus locaux. Un clic ouvre le morceau.
+- **⚙ Réglages** : clé API et dossier racine Drive (enregistrés dès qu'on les modifie ; coller l'adresse du dossier suffit), thème, accords, qualité d'étirement, outil de conversion M4A → Opus.
+- Sous le titre : le **rappel d'accord** (toujours visible), le bouton **🎚 Mixeur** (pistes, vitesse, transposition ; ouvrable/fermable, mémorisé) et les onglets **Structure**, **Paroles** et **Guitare** (grisé : à venir). Un onglet sans contenu pour le morceau est grisé.
+
 ## Vitesse et transposition
-- **Vitesse** de 50 à 150 % **sans changer la hauteur**, et **transposition** de −12 à +12 demi-tons (boutons −1 ton, −½, +½, +1 ton), dans « Vitesse et transposition » (au-dessus de « Boucle et calage »). La vitesse est mémorisée ; la transposition revient à 0 à chaque morceau.
+- **Vitesse** de 50 à 150 % **sans changer la hauteur**, et **transposition** de −12 à +12 demi-tons (boutons −1 ton, −½, +½, +1 ton), dans le volet **Mixeur**. La vitesse est mémorisée ; la transposition revient à 0 à chaque morceau.
 - Les **accords** et la **tonalité** affichés suivent la transposition (Do majeur + 1 ton : C devient D, tonalité Ré majeur). Bémols ou dièses selon la tonalité d'arrivée. La notation Nashville ne change pas.
 - À 100 % et 0 demi-ton, la lecture est exactement l'ancienne. Sinon, l'étirement est calculé dans des Workers (Signalsmith Stretch, WebAssembly, licence MIT) ; les pistes muettes ne sont pas calculées. Si le téléphone peine, l'indicateur « Calcul » dépasse 85 % : choisir la qualité « Économique » (Réglages) ou une vitesse plus proche de 100 %.
 

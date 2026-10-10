@@ -13,6 +13,7 @@ const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { 
 const msg = t => { $('msg').textContent = t || ''; };
 const status = t => { $('status').textContent = t || ''; };
 const pref = { notation: store.get('chordNotation') || 'pop', level: store.get('chordLevel') || 'simple' };
+let curView = store.get('view') || 'structure', shownView = null, mixerOpen = store.get('mixerOpen') !== '0';     // vue préférée (onglet) et état du volet mixeur
 let trFn = x => x, keyFlats = false;                                // transposition des accords à l'affichage (la notation Nashville, relative à la tonalité, ne change pas)
 
 // ---------------- Lecteur ----------------
@@ -182,7 +183,7 @@ function scheduleBlock(r, srcLen) {
 // ---------------- Métadonnées : grille, accords, paroles, sections ----------------
 let M = null, view = [], mapBtns = [], listBtns = [], lyEls = [];
 let ui = { bb: '', sec: -2, chord: '', line: -2, word: -2, time: '' };
-const noMeta = () => { M = null; view = []; ui = { bb: '', sec: -2, chord: '', line: -2, word: -2, time: '' }; renderStructure(); renderLyrics(); $('now').hidden = true; };
+const noMeta = () => { M = null; view = []; ui = { bb: '', sec: -2, chord: '', line: -2, word: -2, time: '' }; renderStructure(); renderLyrics(); $('now').hidden = true; updateViews(); };
 
 function snapTime(t, mode = $('snap').value) {
   if (!M || !M.beats || mode === 'free') return t;
@@ -339,6 +340,7 @@ $('loop').onchange = () => { if (playing) startFrom(Math.round(curPos())); };
 $('snap').value = store.get('snap') || 'beat'; $('snap').onchange = () => store.set('snap', $('snap').value);
 $('merge').checked = store.get('merge') === '1'; $('merge').onchange = () => { store.set('merge', $('merge').checked ? '1' : '0'); renderStructure(); };
 $('f').onchange = async e => {
+  closeDlg($('songs-dialog'));
   try {
     const files = [...e.target.files].sort((a, b) => a.name.localeCompare(b.name));
     msg(''); noMeta(); $('song-info').textContent = '';
@@ -347,7 +349,7 @@ $('f').onchange = async e => {
 };
 document.addEventListener('keydown', e => {                          // clavier : espace = lecture/pause, flèches = mesure précédente/suivante
   const tag = (e.target && e.target.tagName) || '';
-  if (['INPUT', 'SELECT', 'TEXTAREA'].includes(tag) || e.ctrlKey || e.metaKey || e.altKey || !tracks.length) return;
+  if (['INPUT', 'SELECT', 'TEXTAREA'].includes(tag) || e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented || !tracks.length || document.querySelector('dialog[open]')) return;
   if (e.key === ' ' && tag !== 'BUTTON') { e.preventDefault(); $('play').onclick(); }
   else if (e.key === 'ArrowLeft') { e.preventDefault(); $('prev-bar').onclick(); }
   else if (e.key === 'ArrowRight') { e.preventDefault(); $('next-bar').onclick(); }
@@ -362,27 +364,37 @@ drive = makeDrive();
 cache.purge().then(n => n && status(n + ' fichier(s) inutilisé(s) depuis 45 jours supprimé(s) du cache.'));
 cache.persist();
 
+const closeDlg = d => { if (d && d.close) d.close(); };
 function songButtons(el, items) {
   el.innerHTML = '';
-  items.forEach(s => { const b = document.createElement('button'); b.type = 'button'; b.textContent = s.name; b.onclick = () => openSong(s); el.appendChild(b); });
+  items.forEach(s => { const b = document.createElement('button'); b.type = 'button'; b.textContent = s.name; b.onclick = () => { closeDlg($('songs-dialog')); openSong(s); }; el.appendChild(b); });
 }
 async function refreshLocal() {
   const l = await cache.listSongs();
   songButtons($('local'), l);
   if (!l.length) $('local').textContent = 'Aucun morceau enregistré pour l\'instant.';
 }
+const songsNote = (t, bad) => { const e = $('songs-msg'); e.textContent = t || ''; e.className = bad ? 'err' : 'muted'; };
+function saveDrive() {                                               // clé et dossier : enregistrés dès qu'on les modifie dans les Réglages
+  const rootId = parseFolderId($('root').value); $('root').value = rootId;     // une adresse Drive collée est réduite à son identifiant
+  store.set('drv_key', $('key').value.trim()); store.set('drv_root', rootId);
+  drive = makeDrive(); return rootId;
+}
+$('key').onchange = $('root').onchange = saveDrive;
+[$('key'), $('root')].forEach(i => { i.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); if (i.blur) i.blur(); } }; });   // Entrée ne ferme pas les Réglages
 $('list').onclick = async () => {
   try {
-    msg(''); status('Lecture de la liste…');
-    const rootId = parseFolderId($('root').value); $('root').value = rootId;     // une adresse Drive collée est réduite à son identifiant
-    store.set('drv_key', $('key').value.trim()); store.set('drv_root', rootId);
-    drive = makeDrive();
-    if (!drive) throw new Error('Saisissez une clé API.');
+    songsNote('Lecture de la liste…');
+    const rootId = saveDrive();
+    if (!drive) throw new Error('Aucune clé API : renseignez-la dans les Réglages.');
+    if (!rootId) throw new Error('Aucun dossier racine : renseignez-le dans les Réglages.');
     const songs = await drive.listSongs(rootId);
-    if (songs.length) songButtons($('songs'), songs); else $('songs').textContent = 'Aucun morceau terminé (dossier contenant _termine) trouvé.';
-    status('');
-  } catch (e) { status(''); msg(e.message); }
+    if (songs.length) { songButtons($('songs'), songs); songsNote(songs.length + ' morceau(x) sur Drive.'); }
+    else { $('songs').innerHTML = ''; songsNote('Aucun morceau terminé (dossier contenant _termine) trouvé.'); }
+  } catch (e) { songsNote(e.message, true); }
 };
+$('open-songs').onclick = () => { refreshLocal(); songsNote(''); $('songs-settings').hidden = !!$('key').value.trim(); $('songs-dialog').showModal(); };
+$('songs-to-settings').onclick = () => { closeDlg($('songs-dialog')); $('open-settings').onclick(); };
 async function openSong(s) {
   try {
     pause(); msg(''); noMeta(); $('song-info').textContent = '';
@@ -390,7 +402,7 @@ async function openSong(s) {
     await loadFromBytes(r.tracks);
     M = buildMeta(r.meta);
     syncTempoUI();
-    renderStructure(); renderLyrics();
+    renderStructure(); renderLyrics(); updateViews();
     $('now').hidden = !(M.beats || M.chords);
     status(r.offline ? 'Hors ligne : copie enregistrée sur cet appareil.' : r.fromCache ? r.fromCache + ' piste(s) lue(s) depuis le cache.' : '');
     if (r.warnings.length) msg(r.warnings.join('\n'));
@@ -418,7 +430,7 @@ function syncTempoUI() {                                            // met l'int
   const pct = Math.round(speed * 100);
   $('speed').value = String(pct); $('speed').setAttribute('aria-valuetext', pct + ' %'); $('speed-val').textContent = pct + ' %';
   $('semi-val').textContent = fmtSemis(semis);
-  $('tempo-sum').textContent = 'Vitesse et transposition' + (stretching() ? ' : ' + pct + ' %, ' + fmtSemis(semis) : '');
+  $('tempo-sum').textContent = 'Mixeur' + (stretching() ? ' · ' + pct + ' %, ' + fmtSemis(semis) : '');
   $('tempo-reset').disabled = !stretching();
   if (!stretching()) { load = 0; $('tempo-info').textContent = ''; }
   rebuildTranspose();
@@ -445,6 +457,38 @@ $('stretch-quality').value = store.get('stretchQuality') || 'default';
 $('stretch-quality').onchange = () => { store.set('stretchQuality', $('stretch-quality').value); if (playing && st) startFrom(Math.round(curPos())); };
 syncTempoUI();
 
+// ---------------- Écran principal : volet mixeur et vues (onglets) ----------------
+// Le mixeur (pistes, vitesse, transposition) est un volet qu'on ouvre ou ferme ; Structure, Paroles et Guitare sont des vues exclusives.
+// Rien n'est détruit en changeant de vue : les éléments sont seulement masqués, l'affichage continue de se mettre à jour. Le rappel d'accord (#now) est toujours visible.
+const VIEWS = ['structure', 'lyrics', 'guitar'];
+const viewAvailable = { structure: () => !!(M && M.sections), lyrics: () => !!(M && M.lyrics), guitar: () => false };   // Guitare : pas encore implémentée
+function setMixer(open, remember = true) {
+  mixerOpen = open; $('mixer-panel').hidden = !open; $('btn-mixer').setAttribute('aria-expanded', String(open));
+  if (remember) store.set('mixerOpen', open ? '1' : '0');
+}
+function setView(v, remember = true) {
+  shownView = v;
+  VIEWS.forEach(x => { $('tab-' + x).setAttribute('aria-selected', String(x === v)); $('view-' + x).hidden = x !== v; });
+  const map = $('map'), host = v === 'lyrics' ? $('view-lyrics') : $('view-structure');   // une seule carte de structure, déplacée d'une vue à l'autre
+  if ((v === 'structure' || v === 'lyrics') && host.prepend) host.prepend(map);
+  if (v === 'lyrics' && ui.line >= 0 && lyEls[ui.line]) scrollLyric(lyEls[ui.line].b);       // la zone était masquée : on recentre la ligne en cours
+  if (v && remember) { curView = v; store.set('view', v); }
+}
+function updateViews() {                                            // appelée quand le morceau change : onglets sans contenu grisés, repli sur une vue disponible
+  const ok = {}; VIEWS.forEach(v => { ok[v] = viewAvailable[v](); $('tab-' + v).disabled = !ok[v]; });
+  setView(ok[curView] ? curView : (VIEWS.find(v => ok[v]) || null), false);
+}
+$('btn-mixer').onclick = () => setMixer(!mixerOpen);
+VIEWS.forEach(v => { $('tab-' + v).onclick = () => { if (!$('tab-' + v).disabled) setView(v); }; });
+$('tabs').onkeydown = e => {                                        // flèches gauche/droite : onglet précédent/suivant
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  const en = VIEWS.filter(v => !$('tab-' + v).disabled); if (!en.length) return;
+  e.preventDefault();
+  const n = en[(Math.max(en.indexOf(shownView), 0) + (e.key === 'ArrowRight' ? 1 : -1) + en.length) % en.length];
+  setView(n); if ($('tab-' + n).focus) $('tab-' + n).focus();
+};
+setMixer(mixerOpen, false); updateViews();
+
 // ---------------- Réglages : thèmes, accords, version, cache ----------------
 const settings = $('settings');
 $('ver').textContent = self.APP_VERSION || '?';
@@ -462,6 +506,7 @@ async function showStorage() {
   $('storage').textContent = u ? 'Stockage utilisé : ' + (u.used / 1e6).toFixed(0) + ' Mo' + (u.quota ? ' sur ' + (u.quota / 1e9).toFixed(1) + ' Go disponibles' : '') + '.' : '';
 }
 $('open-settings').onclick = () => { fillThemes(); showStorage(); settings.showModal(); };
+$('open-converter').onclick = () => { closeDlg(settings); $('conv-dialog').showModal(); };
 $('clear-cache').onclick = async () => { await cache.clear(); await refreshLocal(); await showStorage(); status('Cache audio vidé.'); };
 
 // ---------------- Mises à jour (service worker) ----------------
