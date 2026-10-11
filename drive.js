@@ -20,15 +20,21 @@ function explain(status, reason) {
   return 'Erreur Drive ' + status + (reason ? ' : ' + reason : '');
 }
 
-export function createDrive(apiKey) {
+export function createDrive(apiKey, { retryDelay = 400 } = {}) {
   const mediaUrl = id => `${API}/${cleanId(id)}?alt=media&key=${apiKey}`;
 
+  // Une requête qui échoue sans réponse lisible (TypeError de fetch) est retentée : Google ne met pas d'en-tête CORS sur certaines réponses
+  // d'erreur (limite de requêtes atteinte, par exemple), et le navigateur les présente alors comme une panne réseau « CORS ». Hors ligne : pas de nouvel essai.
   async function request(url, tries = 4) {
-    let last;
+    let last, silent = 0;
     for (let i = 0; i < tries; i++) {
       let res;
       try { res = await fetch(url); }
-      catch (e) { throw new Error('Réseau indisponible : impossible de joindre Google Drive.'); }
+      catch (e) {
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new Error('Réseau indisponible : l\'appareil est hors ligne.');
+        if (++silent < 3) { await sleep(retryDelay * 3 ** (silent - 1) + Math.random() * 100); i--; continue; }
+        throw new Error('Réseau indisponible ou refusé : Google Drive n\'a pas répondu (coupure, limite de requêtes atteinte, ou clé API / partage refusé : le navigateur l\'affiche alors comme une erreur CORS).');
+      }
       if (res.ok) return res;
       let reason = '', detail = '';
       try { const j = await res.clone().json(); reason = (j.error && j.error.errors && j.error.errors[0] && j.error.errors[0].reason) || ''; detail = (j.error && j.error.message) || ''; } catch (e) {}
@@ -187,15 +193,22 @@ async function pool(items, n, fn) {
 // drive peut être null (hors ligne) : le morceau est alors reconstruit depuis la fiche enregistrée.
 export async function loadSong(drive, cache, songFolderId, onStatus = () => {}, songName = '') {
   let files, stems, meta = {}, offline = false; const warnings = [];
+  let prev = null; try { prev = cache ? await cache.getSong(songFolderId) : null; } catch (e) {}     // copie d'une ouverture précédente : sert si Drive ne répond pas pour un fichier
+  const fromCopy = (key, name, err) => {                              // fichier illisible : on reprend la copie enregistrée si elle existe
+    const old = prev && prev.meta && prev.meta[key];
+    if (old) { warnings.push(name + ' : copie enregistrée utilisée (' + err.message + ')'); return old; }
+    warnings.push(name + ' illisible : ' + err.message); return null;
+  };
   try {
     if (!drive) throw new Error('Ce morceau n\'est pas disponible hors ligne (il n\'a jamais été ouvert avec une connexion).');
     ({ files, stems } = await drive.openSong(songFolderId));
-    await Promise.all(Object.values(files).filter(f => /\.json$/i.test(f.name)).map(async f => {
+    const small = Object.values(files).filter(f => /\.json$/i.test(f.name));
+    await pool(small, 3, async f => {                                 // 3 à la fois : une rafale de requêtes simultanées déclenche la limite de débit de Drive
       const key = f.name.replace(/\.json$/i, '');
       try { meta[key] = JSON.parse(await drive.getText(f)); }
-      catch (e) { meta[key] = null; warnings.push(f.name + ' illisible : ' + e.message); }
-    }));
-    if (files['paroles.lrc']) { try { meta.paroles_lrc = await drive.getText(files['paroles.lrc']); } catch (e) { warnings.push('paroles.lrc illisible : ' + e.message); } }
+      catch (e) { meta[key] = fromCopy(key, f.name, e); }
+    });
+    if (files['paroles.lrc']) { try { meta.paroles_lrc = await drive.getText(files['paroles.lrc']); } catch (e) { const o = fromCopy('paroles_lrc', 'paroles.lrc', e); if (o) meta.paroles_lrc = o; } }
     if (cache) await cache.putSong(songFolderId, { name: songName, files, stems, meta, savedAt: Date.now() });
   } catch (e) {
     const rec = cache ? await cache.getSong(songFolderId) : null;
