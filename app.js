@@ -433,6 +433,15 @@ cache.purge().then(n => n && status(n + ' fichier(s) inutilisé(s) depuis 45 jou
 cache.persist();
 
 const closeDlg = d => { if (d && d.close) d.close(); };
+// Un toucher sur le fond sombre (hors du volet) ferme la fenêtre ; Échap et « Fermer » fonctionnent aussi.
+['songs-dialog', 'conv-dialog', 'speed-dialog', 'key-dialog', 'loop-dialog', 'settings'].forEach(id => {
+  const d = $(id); if (!d.addEventListener) return;
+  d.addEventListener('click', e => {
+    if (e.target !== d) return;
+    const r = d.getBoundingClientRect();
+    if (e.clientY < r.top || e.clientY > r.bottom || e.clientX < r.left || e.clientX > r.right) closeDlg(d);
+  });
+});
 function songButtons(el, items) {
   el.innerHTML = '';
   items.forEach(s => { const b = document.createElement('button'); b.type = 'button'; b.textContent = s.name; b.onclick = () => { closeDlg($('songs-dialog')); openSong(s); }; el.appendChild(b); });

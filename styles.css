@@ -166,3 +166,7 @@ body[data-hand=left] .bigval{direction:ltr}
   .mx-top{grid-area:top}.mx-tracks{grid-area:tracks}.mx-transport{grid-area:transport;position:static;margin-top:0}
   .toast{bottom:16px}
 }
+
+/* Corrections 1.7.1 : l'attribut hidden doit toujours gagner (sinon #page-mixer{display:flex} restait visible sous le Menu) ; « Fermer » reste en bas du volet même s'il défile */
+[hidden]{display:none!important}
+dialog.sheet form>.row:last-child{position:sticky;bottom:0;background:var(--surface);padding:10px 0;z-index:1}

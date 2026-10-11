@@ -102,7 +102,7 @@
 </nav>
 
 <dialog id="songs-dialog" class="sheet" aria-labelledby="songs-title">
-  <form method="dialog">
+  <form method="dialog" novalidate>
     <h2 id="songs-title">Morceaux</h2>
     <div class="row"><strong>Google Drive</strong><button id="list" type="button">Actualiser la liste</button></div>
     <p id="songs-msg" role="status" class="muted"></p>
@@ -112,12 +112,12 @@
     <div id="local" class="list" aria-label="Morceaux disponibles hors ligne"></div>
     <h3>Fichiers locaux (.opus)</h3>
     <input type="file" id="f" accept=".opus,.ogg,audio/ogg" multiple aria-label="Choisir des fichiers Opus">
-    <div class="row"><button value="close" class="primary">Fermer</button></div>
+    <div class="row"><button value="close" class="primary" formnovalidate>Fermer</button></div>
   </form>
 </dialog>
 
 <dialog id="conv-dialog" class="sheet" aria-labelledby="conv-title">
-  <form method="dialog">
+  <form method="dialog" novalidate>
     <h2 id="conv-title">Convertir des M4A en Opus (outil)</h2>
 
     <p>L'encodeur est <strong>figé</strong> : toutes les pistes d'un morceau doivent être converties avec exactement les mêmes réglages pour rester alignées.</p>
@@ -138,12 +138,12 @@
     <div id="conv-list" role="status"></div>
     <p id="conv-summary"></p>
     <div class="row"><button id="conv-zip" type="button" hidden>Télécharger le ZIP</button><button id="conv-report" type="button" hidden>Télécharger le rapport (JSON)</button></div>
-    <div class="row"><button value="close" class="primary">Fermer</button></div>
+    <div class="row"><button value="close" class="primary" formnovalidate>Fermer</button></div>
   </form>
 </dialog>
 
 <dialog id="speed-dialog" class="sheet" aria-labelledby="speed-title">
-  <form method="dialog">
+  <form method="dialog" novalidate>
     <h2 id="speed-title">Vitesse</h2>
     <div class="bigval"><output id="speed-big" for="speed">100</output> <span id="speed-unit">BPM</span></div>
     <p id="speed-sub" class="muted"></p>
@@ -159,12 +159,12 @@
     </div>
     <p id="tempo-info" class="muted" role="status"></p>
     <p class="muted">La hauteur reste la même quand on change la vitesse. La vitesse est mémorisée d'un morceau à l'autre.</p>
-    <div class="row"><button value="close" class="primary">Fermer</button></div>
+    <div class="row"><button value="close" class="primary" formnovalidate>Fermer</button></div>
   </form>
 </dialog>
 
 <dialog id="key-dialog" class="sheet" aria-labelledby="key-title">
-  <form method="dialog">
+  <form method="dialog" novalidate>
     <h2 id="key-title">Tonalité</h2>
     <p id="key-line" class="bigval"></p>
     <div class="row stepper">
@@ -178,12 +178,12 @@
       <button id="semi-p2" type="button" aria-label="Monter d'un ton (2 demi-tons)">+1 ton</button>
     </div>
     <p class="muted">Les accords et la tonalité affichés suivent la transposition ; la notation Nashville ne change pas (elle est relative à la tonalité). La vitesse reste la même.</p>
-    <div class="row"><button value="close" class="primary">Fermer</button></div>
+    <div class="row"><button value="close" class="primary" formnovalidate>Fermer</button></div>
   </form>
 </dialog>
 
 <dialog id="loop-dialog" class="sheet" aria-labelledby="loop-title">
-  <form method="dialog">
+  <form method="dialog" novalidate>
     <h2 id="loop-title">Boucle</h2>
     <label class="chk switch"><input type="checkbox" id="loop"> Boucle activée</label>
     <p class="muted" id="loop-help">Touchez une carte : la boucle devient cette carte. Appui long sur une autre carte : la fin de la boucle se place à la fin de cette carte.</p>
@@ -192,17 +192,17 @@
     <details id="loop-manual">
       <summary>Réglage manuel (secondes)</summary>
       <div class="row">
-        <label for="a">Début</label><input type="number" id="a" value="0" step="0.5" min="0" aria-label="Début de boucle en secondes">
-        <label for="b">Fin</label><input type="number" id="b" value="4" step="0.5" min="0" aria-label="Fin de boucle en secondes">
+        <label for="a">Début</label><input type="number" id="a" value="0" step="any" min="0" aria-label="Début de boucle en secondes">
+        <label for="b">Fin</label><input type="number" id="b" value="4" step="any" min="0" aria-label="Fin de boucle en secondes">
       </div>
       <div class="row"><button id="set-a" type="button">Début ici</button><button id="set-b" type="button">Fin ici</button></div>
     </details>
-    <div class="row"><button value="close" class="primary">Fermer</button></div>
+    <div class="row"><button value="close" class="primary" formnovalidate>Fermer</button></div>
   </form>
 </dialog>
 
 <dialog id="settings" class="sheet" aria-labelledby="settings-title">
-  <form method="dialog">
+  <form method="dialog" novalidate>
     <h2 id="settings-title">Réglages</h2>
     <h3>Google Drive</h3>
     <label for="key">Clé API Google</label>
@@ -228,7 +228,7 @@
     <p id="storage" role="status"></p>
     <div class="row"><button id="clear-cache" type="button">Vider le cache audio</button></div>
     <div class="row"><button id="open-converter" type="button" aria-haspopup="dialog">Convertir des M4A en Opus…</button></div>
-    <div class="row"><button value="close" class="primary">Fermer</button></div>
+    <div class="row"><button value="close" class="primary" formnovalidate>Fermer</button></div>
   </form>
 </dialog>
 
