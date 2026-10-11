@@ -64,6 +64,19 @@ export function chordAt(ch, t, notation, level, tr = x => x) {
   return { index: i, now: tr(now), next: j < ch.list.length ? tr(chordText(ch.list[j], notation, level)) : '', inBeats: j < ch.list.length ? j - i : null };
 }
 
+// Suite d'accords d'une section [t0, t1[ : l'accord en cours au début, puis chaque changement ; les répétitions consécutives sont écrasées. `tr` : transposition à l'affichage.
+export function chordsInRange(ch, t0, t1, notation, level, tr = x => x) {
+  if (!ch) return [];
+  const out = []; const push = c => { const s = chordText(c, notation, level); if (s && s !== out.last) { out.push(s); out.last = s; } };
+  const i0 = lastLE(ch.t, t0);
+  if (i0 >= 0) push(ch.list[i0]);
+  for (let i = firstGT(ch.t, t0); i < ch.list.length && ch.t[i] < t1; i++) push(ch.list[i]);
+  delete out.last;
+  return out.map(tr);
+}
+// Nombre de mesures qui commencent dans [t0, t1[ (0 si la grille est inconnue).
+export function barsInRange(g, t0, t1) { return g && g.barStarts ? Math.max(0, firstGT(g.barStarts, t1 - 0.001) - firstGT(g.barStarts, t0 - 0.001)) : 0; }
+
 // ---------- transposition (accords et tonalité) ----------
 const SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];

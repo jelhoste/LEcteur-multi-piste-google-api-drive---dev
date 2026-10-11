@@ -3,7 +3,7 @@ importScripts('version.js');
 const CACHE = 'lecteur-app-' + self.APP_VERSION;                    // l'application : un cache par version
 const TOOLS = 'lecteur-tools-' + self.TOOLS_VERSION;                // les gros composants WebAssembly : cache séparé, mis en cache à la première utilisation
 const TOOL_PATHS = ['/vendor/ffmpeg/', '/vendor/opus/'];
-const SHELL = ['./', 'index.html', 'styles.css', 'themes.js', 'app.js', 'ogg-opus.js', 'drive.js', 'meta.js', 'version.js',
+const SHELL = ['./', 'index.html', 'styles.css', 'themes.js', 'app.js', 'ogg-opus.js', 'drive.js', 'meta.js', 'ui-helpers.js', 'version.js',
   'stretch.js', 'stretch-core.js', 'stretch-worker.js', 'vendor/signalsmith/signalsmith-stretch-wasm.js',
   'opus-pack.js', 'convert-core.js', 'convert-worker.js', 'converter.js', 'converter-lib.js', 'vendor/VERSIONS.json',
   'vendor/opus-decoder.min.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png'];
