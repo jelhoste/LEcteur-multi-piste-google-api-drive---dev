@@ -1,0 +1,75 @@
+{
+  "note": "Versions et empreintes SHA-256 des composants embarqués. Toute évolution de l'encodeur doit donner un NOUVEAU profil (voir convert-core.js).",
+  "ffmpegCore": {
+    "package": "@ffmpeg/core",
+    "version": "0.12.10",
+    "ffmpeg": "5.1.4",
+    "role": "décodage AAC et rééchantillonnage vers 48 kHz",
+    "files": {
+      "vendor/ffmpeg/ffmpeg-core.js": {
+        "bytes": 112059,
+        "sha256": "b266ab5b952555881dd6310663986994a182acb2b7ff25cf10a25f7a37ac2b21"
+      },
+      "vendor/ffmpeg/ffmpeg-core.wasm.gz": {
+        "bytes": 10220331,
+        "sha256": "afdfd6a2af16abac6f73d68965ec3a97a41a2d3e1b07d3a9e9fa7be0599b6e6a",
+        "compression": "gzip -9 -n",
+        "uncompressedBytes": 32232419,
+        "uncompressedSha256": "9f57947a5bd530d8f00c5b3f2cb2a3492faa7e5d823315342d6a8656d0a6b7b7"
+      }
+    },
+    "note": "Le .wasm est stocké compressé (GitHub refuse les fichiers de plus de 25 Mo à l'envoi par navigateur) ; il est décompressé et vérifié (SHA-256) par convert-worker.js."
+  },
+  "opusscript": {
+    "package": "opusscript",
+    "version": "0.1.1",
+    "libopus": "1.4",
+    "role": "encodage Opus",
+    "files": {
+      "vendor/opus/opusscript_native_wasm.js": {
+        "bytes": 24826,
+        "sha256": "176802f6e4a7616d3049c5361e2d448f6b2cadd6d9946f1d434e5ab5789d2fe3"
+      },
+      "vendor/opus/opusscript_native_wasm.wasm": {
+        "bytes": 317635,
+        "sha256": "e24b269dbfde9f357de19f5b4f6458010be356d7122b0bb8bfe439504a6d5c33"
+      }
+    }
+  },
+  "opusDecoder": {
+    "package": "opus-decoder",
+    "version": "0.7.11",
+    "role": "décodage Opus pour la lecture",
+    "files": {
+      "vendor/opus-decoder.min.js": {
+        "bytes": 87585,
+        "sha256": "fd73ee0a9c8a5e233c0b88234df14f46003ad89bb4ba27435bc8714db2a6dc62"
+      }
+    }
+  },
+  "signalsmithStretch": {
+    "package": "signalsmith-stretch",
+    "version": "1.3.2",
+    "license": "MIT",
+    "author": "Geraint Luff / Signalsmith Audio",
+    "role": "étirement temporel (vitesse sans changer la hauteur) et transposition, en WebAssembly, dans des Workers",
+    "files": {
+      "vendor/signalsmith/signalsmith-stretch-wasm.js": {
+        "bytes": 99040,
+        "sha256": "5dda9c83adb74040a3a66ca43f29cf0d3980be9d7024f4d7a82483f31d818e62",
+        "officialPartSha256": "f4af9d616062c67dbfe6a98d9bfd39f0149246f02c111122a10936f5c63d5cf6",
+        "note": "Début du fichier officiel SignalsmithStretch.js (jusqu'à « function registerWorkletProcessor ») précédé d'un commentaire d'en-tête ; la partie officielle est identique octet pour octet (officialPartSha256)."
+      }
+    },
+    "latenciesSamples48k": {
+      "default": [
+        2880,
+        2880
+      ],
+      "cheaper": [
+        2400,
+        4320
+      ]
+    }
+  }
+}
