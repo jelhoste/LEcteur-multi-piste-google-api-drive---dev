@@ -52,7 +52,9 @@ function mixChanged() {                                              // volume, 
   if (playing && st && tracks.some((_, i) => gains[i] && !activeIdx.includes(i) && !isMuted(i))) startFrom(Math.round(curPos()));
 }
 function applyGain(i, g = gains[i]) { g.gain.value = isMuted(i) ? 0 : $('v' + i).value / 100; }
-function setPlayLabel(on) { $('play-label').textContent = on ? 'Pause' : 'Lecture'; $('ic-play').hidden = on; $('ic-pause').hidden = !on; $('mini-play').textContent = on ? '⏸' : '▶'; }
+// Les icônes ▶ / ⏸ sont des éléments SVG : ils n'ont pas de propriété `hidden` (l'affecter ne change rien à l'écran) ; on passe par l'attribut.
+function showEl(el, on) { if (on) el.removeAttribute('hidden'); else el.setAttribute('hidden', ''); }
+function setPlayLabel(on) { $('play-label').textContent = on ? 'Pause' : 'Lecture'; showEl($('ic-play'), !on); showEl($('ic-pause'), on); }
 function stopSources() { live.forEach(s => { s.onended = null; try { s.stop(); } catch (e) {} }); live.clear(); segs = []; endWhen = 0; }
 function curPos() {
   if (!playing) return posSample;
@@ -272,7 +274,7 @@ function updateMusical(t) {
   if (M.chords) {
     const c = chordAt(M.chords, t, pref.notation, pref.level, trFn), key = c.index + '|' + pref.notation + '|' + pref.level + '|' + semis;
     if (key !== ui.chord) {
-      ui.chord = key; $('chord-now').textContent = c.now || '–'; $('mini-chord').textContent = c.now || '–'; $('chord-next').textContent = c.next ? '→ ' + c.next : '';
+      ui.chord = key; $('chord-now').textContent = c.now || '–'; $('chord-next').textContent = c.next ? '→ ' + c.next : '';
       $('next-lbl').textContent = c.inBeats ? 'Suivant (dans ' + c.inBeats + ' temps)' : 'Suivant';
     }
   }
@@ -303,7 +305,7 @@ function tick() {
     const p = curPos(), D = dur();
     if (!dragging) $('pos').value = p;
     const txt = fmtT(p / SR) + ' / ' + fmtT(D / SR);
-    if (txt !== ui.time) { ui.time = txt; $('time').textContent = fmt(p / SR); $('time-left').textContent = '-' + fmt(Math.max(0, D - p) / SR); $('mini-time').textContent = fmt(p / SR) + ' / ' + fmt(D / SR); $('pos').setAttribute('aria-valuetext', txt); }
+    if (txt !== ui.time) { ui.time = txt; $('time').textContent = fmt(p / SR); $('time-left').textContent = '-' + fmt(Math.max(0, D - p) / SR); $('pos').setAttribute('aria-valuetext', txt); }
     updateMusical(curTime());
   }
   requestAnimationFrame(tick);
@@ -332,7 +334,7 @@ async function loadFromBytes(list) {                                // list : [{
   solo.clear(); buildTrackRows(null);
   if (ctx) buildGains();                                            // contexte déjà créé : reconnecter les nouvelles pistes
   $('pos').max = dur(); $('pos').value = 0; $('pos').disabled = false;
-  ['play', 'mini-play', 'back10', 'fwd10', 'btn-speed', 'btn-key', 'btn-loop'].forEach(id => { $(id).disabled = false; });
+  ['play', 'back10', 'fwd10', 'btn-speed', 'btn-key', 'btn-loop'].forEach(id => { $(id).disabled = false; });
   $('loop').checked = false; $('a').value = '0'; $('b').value = Math.min(4, (dur() / SR).toFixed(1));   // une boucle ne passe pas d'un morceau à l'autre
   paintLoop(); syncTempoUI();
 }
@@ -394,7 +396,6 @@ function jumpSection(dir) {
 }
 pressable($('back10'), () => jump10(-1), () => jumpSection(-1));
 pressable($('fwd10'), () => jump10(1), () => jumpSection(1));
-$('mini-play').onclick = () => $('play').onclick();
 $('set-a').onclick = () => { $('a').value = snapTime(curTime()).toFixed(2); msg(''); paintLoop(); };
 $('set-b').onclick = () => {
   const v = snapTime(curTime()); $('b').value = v.toFixed(2);
@@ -567,13 +568,12 @@ syncTempoUI();
 
 // ---------------- Écran principal : onglets en bas, bulle d'information, mode gaucher, écran allumé ----------------
 // Mixeur (accords, structure condensée, pistes, commandes), Structure (cartes étalées), Paroles, Guitare (à venir), Menu. Rien n'est détruit en changeant d'onglet :
-// les pages sont seulement masquées et l'affichage continue de se mettre à jour. Hors du Mixeur, une mini-barre garde lecture/pause et l'accord en cours.
+// les pages sont seulement masquées et l'affichage continue de se mettre à jour. La barre de lecture (position, temps, commandes, volume général) est commune à tous les écrans.
 const TABS = ['mixer', 'structure', 'lyrics', 'guitar', 'menu'];
 const tabAvailable = { mixer: () => true, structure: () => !!(M && M.sections), lyrics: () => !!(M && M.lyrics), guitar: () => false, menu: () => true };
 function setTab(v, remember = true) {
   shownTab = v;
   TABS.forEach(x => { $('tab-' + x).setAttribute('aria-selected', String(x === v)); $('page-' + x).hidden = x !== v; });
-  $('minibar').hidden = v === 'mixer';
   if (v === 'lyrics' && ui.line >= 0 && lyEls[ui.line]) scrollLyric(lyEls[ui.line].b);       // la zone était masquée : on recentre la ligne en cours
   if (v === 'structure') ui.cur = -1;
   if (remember) { curTab = v; store.set('tab', v); $('pages').scrollTop = 0; }
