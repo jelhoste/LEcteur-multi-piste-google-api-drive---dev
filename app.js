@@ -52,7 +52,7 @@ function mixChanged() {                                              // volume, 
   if (playing && st && tracks.some((_, i) => gains[i] && !activeIdx.includes(i) && !isMuted(i))) startFrom(Math.round(curPos()));
 }
 function applyGain(i, g = gains[i]) { g.gain.value = isMuted(i) ? 0 : $('v' + i).value / 100; }
-function setPlayLabel(on) { $('play').textContent = on ? '⏸ Pause' : '▶ Lecture'; $('mini-play').textContent = on ? '⏸' : '▶'; }
+function setPlayLabel(on) { $('play-label').textContent = on ? 'Pause' : 'Lecture'; $('ic-play').hidden = on; $('ic-pause').hidden = !on; $('mini-play').textContent = on ? '⏸' : '▶'; }
 function stopSources() { live.forEach(s => { s.onended = null; try { s.stop(); } catch (e) {} }); live.clear(); segs = []; endWhen = 0; }
 function curPos() {
   if (!playing) return posSample;
@@ -226,6 +226,7 @@ function paintCardChords() {                                         // accords 
 function paintLoop() {
   const L = loopState(), a = loopA() / SR, b = loopB() / SR, valid = b > a + 0.1;
   $('btn-loop').setAttribute('aria-pressed', String(L.on)); $('btn-loop-val').textContent = L.on ? fmt(a) + '–' + fmt(b) : 'Désactivée';
+  $('btn-loop').setAttribute('aria-label', 'Boucle : ' + (L.on ? 'activée, de ' + fmt(a) + ' à ' + fmt(b) : 'désactivée'));
   $('loop-range').textContent = valid ? 'Boucle : ' + fmtT(a) + ' → ' + fmtT(b) + ' (' + (b - a).toFixed(1) + ' s)' + (L.on ? '' : ' · désactivée') : 'Aucune boucle valide : la fin doit être après le début.';
   view.forEach((g, i) => {
     const inR = valid && g.start >= a - 0.05 && g.end <= b + 0.05;
@@ -302,7 +303,7 @@ function tick() {
     const p = curPos(), D = dur();
     if (!dragging) $('pos').value = p;
     const txt = fmtT(p / SR) + ' / ' + fmtT(D / SR);
-    if (txt !== ui.time) { ui.time = txt; $('time').textContent = txt; $('mini-time').textContent = fmt(p / SR) + ' / ' + fmt(D / SR); $('pos').setAttribute('aria-valuetext', txt); }
+    if (txt !== ui.time) { ui.time = txt; $('time').textContent = fmt(p / SR); $('time-left').textContent = '-' + fmt(Math.max(0, D - p) / SR); $('mini-time').textContent = fmt(p / SR) + ' / ' + fmt(D / SR); $('pos').setAttribute('aria-valuetext', txt); }
     updateMusical(curTime());
   }
   requestAnimationFrame(tick);
@@ -519,6 +520,11 @@ function syncTempoUI() {                                            // met l'int
   $('semi-val').textContent = fmtSemis(semis);
   const key = keyOf(), keyNow = key && (semis ? transposeKey(key, semis, keyFlats) : key);
   $('btn-key-val').textContent = key ? keyNow : (semis ? fmtSemis(semis) : 'Originale');
+  // Icônes seules par défaut ; la valeur apparaît sous l'icône (et l'icône prend la couleur d'accent) dès qu'elle diffère de l'original.
+  const mod = (el, on) => { if (on) el.setAttribute('data-mod', ''); else el.removeAttribute('data-mod'); };
+  mod($('btn-speed'), speed !== 1); mod($('btn-key'), semis !== 0);
+  $('btn-speed').setAttribute('aria-label', 'Vitesse : ' + v + ' ' + tempo.unit + (speed !== 1 ? ' (modifiée)' : ''));
+  $('btn-key').setAttribute('aria-label', 'Tonalité : ' + (key ? keyNow : (semis ? fmtSemis(semis) : 'originale')) + (semis !== 0 ? ' (transposée)' : ''));
   $('key-line').textContent = key ? (semis ? key + ' → ' + keyNow : key) : 'Tonalité inconnue';
   $('keyname').textContent = key ? 'Tonalité ' + keyNow : '';
   if (!stretching()) { load = 0; $('tempo-info').textContent = ''; }
