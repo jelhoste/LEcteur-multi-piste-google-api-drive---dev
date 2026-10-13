@@ -199,9 +199,18 @@ main#pages{display:flex;flex-direction:column}
 .mastervol{display:flex;align-items:center;gap:4px;flex:1 1 auto;min-width:0;padding:0 4px}
 .mastervol .ico{width:18px;height:18px;flex:none;color:var(--muted)}
 .mastervol input[type=range]{flex:1 1 auto;min-width:0;width:100%;height:36px;margin:0}
-#btn-speed{order:1}#back10{order:2}.mastervol{order:3}#play{order:4}#fwd10{order:5}#btn-key{order:6}
-body[data-hand=left] #btn-speed{order:6}body[data-hand=left] #btn-key{order:1}
+#btn-speed{order:1}#back10{order:2}#play{order:3}#fwd10{order:4}#btn-key{order:5}
+body[data-hand=left] #btn-speed{order:5}body[data-hand=left] #btn-key{order:1}
 /* pistes : plus de cadre ni de fond, rangées rapprochées */
 .track{background:none;border:0;border-radius:0;padding:0 2px;margin:0;gap:10px}
 .track .ic{width:46px;height:46px}
 #tracks{display:flex;flex-direction:column;gap:0}
+
+/* ===== 1.8.2 : ligne des temps = temps écoulé · volume général · Boucle · temps restant ; ligne de commandes = tempo · ⏪ · ▶/⏸ · ⏩ · tonalité ===== */
+.timeline{grid-template-columns:auto minmax(0,1fr) auto auto;gap:6px}
+.timeline .mastervol{order:0;padding:0}
+.timeline .mastervol input[type=range]{height:26px}
+body[data-hand=left] .timeline #time{order:4;text-align:right}
+body[data-hand=left] .timeline #time-left{order:1;text-align:left}
+body[data-hand=left] .timeline #btn-loop{order:2}
+body[data-hand=left] .timeline .mastervol{order:3}
