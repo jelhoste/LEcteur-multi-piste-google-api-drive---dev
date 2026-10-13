@@ -41,7 +41,7 @@ Le mode « Automatique » suit le système (sombre, clair, et contraste élevé 
 - **Clavier** : Espace lecture/pause, flèches gauche/droite mesure précédente/suivante.
 - Chaque fonctionnalité se masque seule si le fichier correspondant est absent ou illisible.
 
-## Interface (version 1.8.2)
+## Interface (version 1.8.4)
 Barre d'onglets en bas : **Mixeur** (accords, structure condensée, pistes avec icône — appui court muet, appui long solo —, ⏪ ▶ ⏩, boutons Vitesse / Tonalité / Boucle), **Structure** (cartes étalées avec accords et curseur), **Paroles**, **Guitare** (à venir), **Menu** (morceaux, réglages, mode gaucher, écran allumé, boutons Solo). Vitesse en BPM avec règle à faire glisser ; boucle réglée par les cartes de structure ; ±10 s calé sur la mesure, appui long = section. Détails dans `compte-rendu-lecteur-multipistes.md`.
 
 ## Vitesse et transposition

@@ -65,6 +65,7 @@
     <p id="wake-note" class="muted"></p>
     <label class="chk"><input type="checkbox" id="solo-btns"> Afficher un bouton Solo sur chaque piste</label>
     <h3>Diagnostic</h3>
+    <p id="load-info"></p>
     <p id="info"></p>
   </section>
 </main>
@@ -143,11 +144,8 @@
       <input type="range" id="speed" class="vh-focus" min="50" max="150" step="1" value="100" aria-label="Tempo">
       <div id="ruler" class="ruler" aria-hidden="true"></div>
     </div>
-    <p class="muted">Faites glisser la règle : vers la gauche le tempo monte, vers la droite il descend (1 par graduation). Les boutons avancent de 2.</p>
     <div class="row">
-      <button id="tempo-m2" type="button" aria-label="Ralentir de 2">−2</button>
       <button id="tempo-reset" type="button" disabled>Tempo d'origine</button>
-      <button id="tempo-p2" type="button" aria-label="Accélérer de 2">+2</button>
     </div>
     <p id="tempo-info" class="muted" role="status"></p>
     <p class="muted">La hauteur reste la même quand on change la vitesse. La vitesse est mémorisée d'un morceau à l'autre.</p>
@@ -165,9 +163,7 @@
       <button id="semi-p1" type="button" aria-label="Monter d'un demi-ton">+1</button>
     </div>
     <div class="row">
-      <button id="semi-m2" type="button" aria-label="Descendre d'un ton (2 demi-tons)">−1 ton</button>
       <button id="semi-reset" type="button" disabled>Tonalité d'origine</button>
-      <button id="semi-p2" type="button" aria-label="Monter d'un ton (2 demi-tons)">+1 ton</button>
     </div>
     <p class="muted">Les accords et la tonalité affichés suivent la transposition ; la notation Nashville ne change pas (elle est relative à la tonalité). La vitesse reste la même.</p>
     <div class="row"><button value="close" class="primary" formnovalidate>Fermer</button></div>

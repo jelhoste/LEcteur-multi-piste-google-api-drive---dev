@@ -1,6 +1,6 @@
 import { parseOggOpus, decodeRange } from './ogg-opus.js';
 import { createDrive, createCache, loadSong, parseFolderId } from './drive.js';
-import { buildMeta, snapBeat, snapBar, barBeatAt, prevBar, nextBar, chordAt, bpmAt, lyricAt, sectionsView, sectionAt, shortLabel, transposeChord, transposeKey, spellingFor, chordsInRange, barsInRange } from './meta.js';
+import { buildMeta, snapBeat, snapBar, barBeatAt, prevBar, nextBar, chordAt, bpmAt, lyricAt, sectionsView, sectionAt, shortLabel, transposeChord, transposeKey, spellingFor, chordsInRange, barsInRange, lastLE, firstGT } from './meta.js';
 import { kindOf, KIND_LABEL, iconSvg, pressable, tempoModel, loopTap, loopLong, sectionJump } from './ui-helpers.js';
 import { createPool, delayOut } from './stretch.js';
 
@@ -12,7 +12,7 @@ const fmt = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(
 const fmtT = s => { const d = Math.floor(Math.max(0, s) * 10), sec = (d % 600) / 10; return Math.floor(d / 600) + ':' + (sec < 10 ? '0' : '') + sec.toFixed(1); };
 const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
 const msg = t => { $('msg').textContent = t || ''; };
-const status = t => { $('status').textContent = t || ''; };
+const status = (t, small) => { $('status').textContent = t || ''; $('status').className = small ? 'songtitle' : ''; };
 const pref = { notation: store.get('chordNotation') || 'pop', level: store.get('chordLevel') || 'simple' };
 let curTab = store.get('tab') || 'mixer', shownTab = null;           // onglet préféré et onglet affiché
 const solo = new Set();                                              // pistes en solo (cumulables)
@@ -199,7 +199,7 @@ function setCls(el, cls, on) { const l = new Set(String(el.className || '').spli
 // Trois représentations des sections : carte condensée (écran Mixeur), cartes étalées avec accords et curseur (onglet Structure), cartes de la fenêtre Boucle.
 function renderStructure() {
   const map = $('map'), grid = $('struct-grid'), lc = $('loop-cards'); map.innerHTML = ''; grid.innerHTML = ''; lc.innerHTML = '';
-  mapBtns = []; cardEls = []; loopBtns = []; ui.sec = -2; ui.cur = -1;
+  mapBtns = []; cardEls = []; loopBtns = []; ui.sec = -2; ui.cur = -1; ui.barEl = null; ui.pcur = null;
   if (!M || !M.sections) { view = []; map.hidden = true; paintLoop(); return; }
   view = sectionsView(M.sections, $('merge').checked);
   map.hidden = false;
@@ -211,7 +211,18 @@ function renderStructure() {
     const c = mkEl('button', 'scard'); c.type = 'button'; c.setAttribute('aria-current', 'false');
     const cr = mkEl('span', 'cr'), cur = mkEl('i', 'cursor'); cur.setAttribute('aria-hidden', 'true');
     c.appendChild(mkEl('span', 'nm', g.name)); c.appendChild(mkEl('span', 'tm', fmt(g.start) + (bars ? ' · ' + bars + ' mesure' + (bars > 1 ? 's' : '') : ''))); c.appendChild(cr); c.appendChild(cur);
-    c.onclick = () => seekTo(g.start, false); grid.appendChild(c); cardEls.push({ b: c, cr, cur });
+    // une case par mesure (4 par ligne) : l'accord (ou les accords) joué(s) dans la mesure ; toucher une case = se placer au début de la mesure
+    const bs = [];
+    if (M.beats && M.chords && M.beats.barStarts.length) {
+      const bsArr = M.beats.barStarts;
+      for (let k = firstGT(bsArr, g.start - 0.001); k < bsArr.length && bsArr[k] < g.end - 0.001; k++) {
+        const t0 = bsArr[k], t1 = k + 1 < bsArr.length ? Math.min(bsArr[k + 1], g.end) : g.end;
+        const el = mkEl('span', 'bar'); el.onclick = e => { if (e && e.stopPropagation) e.stopPropagation(); seekTo(t0, false); };
+        cr.appendChild(el); bs.push({ el, t0, t1 });
+      }
+    }
+    setCls(c, 'hasbars', bs.length > 0);
+    c.onclick = () => seekTo(g.start, false); grid.appendChild(c); cardEls.push({ b: c, cr, cur, bs, starts: Float64Array.from(bs, x => x.t0) });
     const l = mkEl('button', ''); l.type = 'button'; l.appendChild(mkEl('span', '', g.name)); l.appendChild(mkEl('small', '', fmt(g.start) + '–' + fmt(g.end)));
     l.setAttribute('aria-label', g.name + ', de ' + fmt(g.start) + ' à ' + fmt(g.end) + '. Toucher : la boucle devient cette section. Appui long : la fin de la boucle se place à la fin de cette section.');
     pressable(l, () => loopCard(idx), () => loopEnd(idx)); lc.appendChild(l); loopBtns.push(l);
@@ -220,6 +231,16 @@ function renderStructure() {
 }
 function paintCardChords() {                                         // accords de chaque section, dans la notation, le niveau et la transposition choisis
   cardEls.forEach((c, i) => {
+    if (c.bs.length) {                                               // une case par mesure ; en grisé quand l'accord n'a pas changé depuis la mesure précédente
+      let prev = null;
+      c.bs.forEach(x => {
+        const l = chordsInRange(M.chords, x.t0, x.t1, pref.notation, pref.level, trFn);
+        x.el.textContent = l.join(' ') || '–';
+        setCls(x.el, 'same', l.length === 1 && l[0] === prev); setCls(x.el, 'multi', l.length > 2);
+        prev = l.length ? l[l.length - 1] : prev;
+      });
+      return;
+    }
     const l = M && M.chords ? chordsInRange(M.chords, view[i].start, view[i].end, pref.notation, pref.level, trFn) : [];
     c.cr.textContent = l.slice(0, 16).join(' ') + (l.length > 16 ? ' …' : '');
   });
@@ -281,12 +302,18 @@ function updateMusical(t) {
   if (view.length) {
     const si = sectionAt(view, t);
     if (si !== ui.sec) {
-      ui.sec = si; $('secname').textContent = si >= 0 ? view[si].name : '';
+      if (ui.barEl) { ui.barEl.removeAttribute('aria-current'); ui.barEl = null; } ui.sec = si; $('secname').textContent = si >= 0 ? view[si].name : '';
       mapBtns.forEach((b, i) => b.setAttribute('aria-current', String(i === si))); cardEls.forEach((c, i) => c.b.setAttribute('aria-current', String(i === si))); ui.cur = -1;
     }
     if (si >= 0 && shownTab === 'structure') {                      // curseur de lecture dans la carte en cours
       const g = view[si], pct = Math.round((t - g.start) / (g.end - g.start) * 200) / 2;
       if (pct !== ui.cur) { ui.cur = pct; cardEls[si].cur.style.left = pct + '%'; }
+      const cd = cardEls[si];
+      if (cd.bs.length) {                                           // mesure en cours : case en surbrillance, avec un trait qui avance dedans
+        const bi = lastLE(cd.starts, t), x = bi >= 0 ? cd.bs[bi] : null;
+        if (ui.barEl !== (x && x.el)) { if (ui.barEl) ui.barEl.removeAttribute('aria-current'); ui.barEl = x && x.el; if (x) x.el.setAttribute('aria-current', 'true'); ui.bpct = -1; }
+        if (x) { const bp = Math.round(Math.max(0, Math.min(1, (t - x.t0) / (x.t1 - x.t0))) * 50) * 2; if (bp !== ui.bpct) { ui.bpct = bp; if (!ui.pcur) { ui.pcur = mkEl('i', 'pcur'); ui.pcur.setAttribute('aria-hidden', 'true'); } if (ui.pcur.parentNode !== x.el) x.el.appendChild(ui.pcur); ui.pcur.style.left = bp + '%'; } }
+      }
     }
   }
   if (M.lyrics) {
@@ -412,7 +439,7 @@ $('f').onchange = async e => {
   closeDlg($('songs-dialog'));
   try {
     const files = [...e.target.files].sort((a, b) => a.name.localeCompare(b.name));
-    msg(''); noMeta(); $('song-info').textContent = '';
+    msg(''); noMeta(); $('song-info').textContent = ''; $('load-info').textContent = 'Fichiers locaux.'; status('');
     await loadFromBytes(await Promise.all(files.map(async f => ({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) }))));
     setTab('mixer');
   } catch (err) { msg(err.message); }
@@ -476,14 +503,15 @@ $('open-songs').onclick = () => { refreshLocal(); songsNote(''); $('songs-settin
 $('songs-to-settings').onclick = () => { closeDlg($('songs-dialog')); $('open-settings').onclick(); };
 async function openSong(s) {
   try {
-    pause(); msg(''); noMeta(); $('song-info').textContent = '';
+    pause(); msg(''); noMeta(); $('song-info').textContent = ''; $('load-info').textContent = '';
     const r = await loadSong(navigator.onLine ? drive : null, cache, s.id, status, s.name);
     await loadFromBytes(r.tracks);
     M = buildMeta(r.meta);
     syncTempoUI();
     renderStructure(); renderLyrics(); updateTabs(); setTab('mixer');
     $('now').hidden = !(M.beats || M.chords);
-    status(r.offline ? 'Hors ligne : copie enregistrée sur cet appareil.' : r.fromCache ? r.fromCache + ' piste(s) lue(s) depuis le cache.' : '');
+    $('load-info').textContent = r.offline ? 'Hors ligne : copie enregistrée sur cet appareil.' : r.fromCache ? r.fromCache + ' piste(s) lue(s) depuis le cache.' : 'Pistes téléchargées depuis Drive.';
+    status(M.info && M.info.titre ? (M.info.artiste ? M.info.artiste + ' - ' + M.info.titre : M.info.titre) : s.name, true);   // titre du morceau, en petit, à la place de l'ancien bandeau
     if (r.warnings.length) msg(r.warnings.join('\n'));
     refreshLocal();
   } catch (e) { status(''); msg(e.message); }
@@ -549,7 +577,6 @@ function setSpeedValue(v) {                                         // valider u
 }
 $('speed').oninput = () => { const v = Math.round($('speed').value); showSpeedValue(v); rulerPos(v); };
 $('speed').onchange = () => setSpeedValue(+$('speed').value);
-$('tempo-m2').onclick = () => setSpeedValue(tempo.toValue(speed) - 2); $('tempo-p2').onclick = () => setSpeedValue(tempo.toValue(speed) + 2);
 $('tempo-reset').onclick = () => { speed = 1; store.set('speed', '1'); tempoChanged(); };
 // Règle : on la fait glisser ; vers la droite le tempo baisse, vers la gauche il monte, une graduation par unité. La valeur est appliquée au relâchement.
 let rdrag = null;
@@ -557,8 +584,8 @@ let rdrag = null;
   r.onpointerdown = e => { rdrag = { x: e.clientX, v: +$('speed').value, cur: null }; if (r.setPointerCapture && e.pointerId !== undefined) { try { r.setPointerCapture(e.pointerId); } catch (x) {} } };
   r.onpointermove = e => { if (!rdrag) return; const v = Math.max(tempo.min, Math.min(tempo.max, rdrag.v - (e.clientX - rdrag.x) / PX)); rdrag.cur = v; showSpeedValue(Math.round(v)); rulerPos(v); };
   r.onpointerup = r.onpointercancel = () => { if (!rdrag) return; const v = rdrag.cur; rdrag = null; if (v !== null) setSpeedValue(v); }; }
-$('semi-m2').onclick = () => setSemis(semis - 2); $('semi-m1').onclick = () => setSemis(semis - 1);
-$('semi-p1').onclick = () => setSemis(semis + 1); $('semi-p2').onclick = () => setSemis(semis + 2);
+$('semi-m1').onclick = () => setSemis(semis - 1);
+$('semi-p1').onclick = () => setSemis(semis + 1);
 $('semi-reset').onclick = () => setSemis(0);
 $('btn-speed').onclick = () => { $('speed-dialog').showModal(); syncTempoUI(); };      // la règle se cale sur sa largeur réelle une fois la fenêtre affichée
 $('btn-key').onclick = () => $('key-dialog').showModal();
