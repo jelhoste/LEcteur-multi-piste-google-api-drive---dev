@@ -398,6 +398,12 @@ function paintTracks() {
     if ($('sb' + i)) $('sb' + i).setAttribute('aria-pressed', String(so));
   });
 }
+const applyShowOriginal = () => { if ($('show-original').checked) $('tracks').removeAttribute('data-hide-original'); else $('tracks').setAttribute('data-hide-original', ''); };
+$('show-original').checked = store.get('showOrig') === '1'; applyShowOriginal();   // masquée par défaut : elle reste muette, la ligne n'est simplement pas affichée
+$('show-original').onchange = () => {
+  store.set('showOrig', $('show-original').checked ? '1' : '0'); applyShowOriginal();
+  if (!$('show-original').checked) tracks.forEach((t, i) => { if (/^original/i.test(t.name) && !$('m' + i).checked) { $('m' + i).checked = true; solo.delete(i); mixChanged(); } });   // masquée = muette, pour ne pas jouer un son qu'on ne peut plus couper
+};
 $('solo-btns').checked = store.get('soloBtns') === '1';
 $('solo-btns').onchange = () => { store.set('soloBtns', $('solo-btns').checked ? '1' : '0'); if (tracks.length) buildTrackRows({ m: tracks.map((_, i) => $('m' + i).checked), v: tracks.map((_, i) => $('v' + i).value) }); };
 $('play').onclick = async () => { if (playing) { pause(); return; } ensureCtx(); await ctx.resume(); msg(''); startFrom(posSample); };

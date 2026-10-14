@@ -16,8 +16,8 @@ export function kindOf(name) {
 const PATHS = {
   vocals: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/>',
   drums: '<ellipse cx="12" cy="11" rx="8" ry="3"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6M9 6 6.5 3M15 6l2.5-3"/>',
-  guitar: '<circle cx="8.5" cy="15.5" r="4.5"/><circle cx="8.5" cy="15.5" r="1" fill="currentColor"/><path d="M12 12 20 4M18 2.5 21.5 6"/>',
-  bass: '<circle cx="8.5" cy="15.5" r="4.5"/><path d="M12 12 20 4M13.7 13.7 21.7 5.7M18 2.5 21.5 6"/>',
+  guitar: '<path d="M9.5 22v-6.2C8.3 14.3 7.9 11 8.2 7.6 8.5 5 10 3 12 3s3.5 2 3.8 4.6c.3 3.4-.1 6.7-1.3 8.2V22"/><path d="M8.1 6.2H6.3M8 9.7H6.3M8.1 13.1H6.3M15.9 6.2h1.8M16 9.7h1.7M15.9 13.1h1.8"/><circle cx="4.9" cy="6.2" r="1.35" fill="currentColor" stroke="none"/><circle cx="4.9" cy="9.7" r="1.35" fill="currentColor" stroke="none"/><circle cx="4.9" cy="13.1" r="1.35" fill="currentColor" stroke="none"/><circle cx="19.1" cy="6.2" r="1.35" fill="currentColor" stroke="none"/><circle cx="19.1" cy="9.7" r="1.35" fill="currentColor" stroke="none"/><circle cx="19.1" cy="13.1" r="1.35" fill="currentColor" stroke="none"/>',
+  bass: '<path d="M10 22v-6.4C9.2 14.2 8.9 11 9.2 7.8 9.5 5.2 10.6 3 12 3s2.5 2.2 2.8 4.8c.3 3.2 0 6.4-.8 7.8V22"/><path d="M9.1 7H7.3M9 11.4H7.3M14.9 7h1.8M15 11.4h1.7"/><circle cx="5.9" cy="7" r="1.35" fill="currentColor" stroke="none"/><circle cx="5.9" cy="11.4" r="1.35" fill="currentColor" stroke="none"/><circle cx="18.1" cy="7" r="1.35" fill="currentColor" stroke="none"/><circle cx="18.1" cy="11.4" r="1.35" fill="currentColor" stroke="none"/>',
   keys: '<rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M7.5 18v-4M12 18v-4M16.5 18v-4M7.5 6v8M12 6v8M16.5 6v8"/>',
   other: '<path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 10v4"/>',
   original: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
