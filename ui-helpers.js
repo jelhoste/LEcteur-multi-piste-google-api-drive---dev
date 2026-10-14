@@ -9,8 +9,8 @@ export function kindOf(name) {
   if (/voc|voix|chant|vox|lead|sing/.test(n)) return 'vocals';
   if (/drum|batt|perc/.test(n)) return 'drums';
   if (/bass/.test(n)) return 'bass';
-  if (/guit/.test(n)) return 'guitar';
-  if (/piano|key|clav|synth|orgue|organ/.test(n)) return 'keys';
+  if (/piano|key|clav|synth|orgue|organ/.test(n)) return 'keys';   // avant la guitare : « electric piano » est un clavier
+  if (/guit|gtr|electr|élec|elec|acoust|acous|folk/.test(n)) return 'guitar';   // guitare, électrique, acoustique (la basse, testée plus haut, reste une basse)
   return 'other';
 }
 const PATHS = {
