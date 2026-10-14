@@ -1,7 +1,7 @@
 import { parseOggOpus, decodeRange } from './ogg-opus.js';
 import { createDrive, createCache, loadSong, parseFolderId } from './drive.js';
 import { buildMeta, snapBeat, snapBar, barBeatAt, prevBar, nextBar, chordAt, bpmAt, lyricAt, sectionsView, sectionAt, shortLabel, transposeChord, transposeKey, spellingFor, chordsInRange, barsInRange, lastLE, firstGT } from './meta.js';
-import { kindOf, KIND_LABEL, iconSvg, pressable, tempoModel, loopTap, loopLong, sectionJump } from './ui-helpers.js';
+import { kindOf, KIND_LABEL, iconSvg, pressable, tempoModel, loopTap, loopLong, sectionJump, structScroll } from './ui-helpers.js';
 import { createPool, delayOut } from './stretch.js';
 
 const $ = id => document.getElementById(id);
@@ -286,6 +286,15 @@ function scrollLyric(el) {
   const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   box.scrollTo({ top: el.offsetTop - box.clientHeight / 2 + el.offsetHeight / 2, behavior: reduce ? 'auto' : 'smooth' });
 }
+function ensureCardVisible(si) {                                    // onglet Structure : la carte en cours reste à l'écran (voir structScroll)
+  const box = $('pages'); if (!box.scrollTo || !cardEls[si] || shownTab !== 'structure') return;
+  const bt = box.getBoundingClientRect().top;
+  const rects = cardEls.map(c => { const r = c.b.getBoundingClientRect(); return { top: r.top - bt, bottom: r.bottom - bt }; });
+  const d = structScroll(rects, si, box.clientHeight);
+  if (!d) return;
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  box.scrollTo({ top: Math.max(0, (box.scrollTop || 0) + d), behavior: reduce ? 'auto' : 'smooth' });
+}
 // Appelée à chaque image : ne touche au DOM que lorsqu'une valeur change.
 function updateMusical(t) {
   if (!M) return;
@@ -304,6 +313,7 @@ function updateMusical(t) {
     if (si !== ui.sec) {
       if (ui.barEl) { ui.barEl.removeAttribute('aria-current'); ui.barEl = null; } ui.sec = si; $('secname').textContent = si >= 0 ? view[si].name : '';
       mapBtns.forEach((b, i) => b.setAttribute('aria-current', String(i === si))); cardEls.forEach((c, i) => c.b.setAttribute('aria-current', String(i === si))); ui.cur = -1;
+      if (si >= 0) ensureCardVisible(si);
     }
     if (si >= 0 && shownTab === 'structure') {                      // curseur de lecture dans la carte en cours
       const g = view[si], pct = Math.round((t - g.start) / (g.end - g.start) * 200) / 2;
@@ -610,6 +620,7 @@ function setTab(v, remember = true) {
   if (v === 'lyrics' && ui.line >= 0 && lyEls[ui.line]) scrollLyric(lyEls[ui.line].b);       // la zone était masquée : on recentre la ligne en cours
   if (v === 'structure') ui.cur = -1;
   if (remember) { curTab = v; store.set('tab', v); $('pages').scrollTop = 0; }
+  if (v === 'structure' && ui.sec >= 0) ensureCardVisible(ui.sec);      // retour sur l'onglet : la carte en cours doit être à l'écran
 }
 function updateTabs() {                                             // morceau changé : onglets sans contenu grisés, repli sur le Mixeur
   const ok = {}; TABS.forEach(v => { ok[v] = tabAvailable[v](); $('tab-' + v).disabled = !ok[v]; });

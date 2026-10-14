@@ -72,3 +72,18 @@ export function sectionJump(view, t, dir, near = 1.0) {
   if (i < 0) { const g = view.find(x => x.start > t); return g ? { t: g.start, name: g.name } : null; }
   return i + 1 < view.length ? { t: view[i + 1].start, name: view[i + 1].name } : { t: view[i].end, name: 'Fin du morceau' };
 }
+
+// ---------- onglet Structure : garder la carte en cours à l'écran ----------
+// rects : position de chaque carte par rapport au haut de la zone défilante visible ({top, bottom}, en pixels) ; i : carte devenue active ; viewH : hauteur visible.
+// Renvoie de combien de pixels faire défiler (0 = rien à faire). Règles :
+//  - la carte active n'est pas entièrement visible : on la met en haut ;
+//  - la carte active est la dernière carte entièrement visible (la rangée suivante ne l'est pas) : elle passe en haut, pour voir ce qui suit ;
+//  - sinon on ne bouge pas (l'avant-dernière carte laisse voir la dernière).
+export const STRUCT_GAP = 8;
+export function structScroll(rects, i, viewH) {
+  const c = rects[i]; if (!c) return 0;
+  if (c.top < 0 || c.bottom > viewH) return Math.round(c.top - STRUCT_GAP);
+  let n = null; for (let j = i + 1; j < rects.length; j++) if (rects[j].top > c.top + 1) { n = rects[j]; break; }   // première carte d'une rangée plus basse
+  if (n && n.bottom > viewH) return Math.round(c.top - STRUCT_GAP);
+  return 0;
+}
