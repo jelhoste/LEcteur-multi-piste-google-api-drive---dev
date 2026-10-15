@@ -149,6 +149,15 @@
       <button id="tempo-reset" type="button" disabled>Tempo d'origine</button>
     </div>
     <p id="tempo-info" class="muted" role="status"></p>
+    <h3>Métronome et précompte</h3>
+    <label class="switch"><span>Métronome</span><input type="checkbox" id="metro-on" role="switch"></label>
+    <div class="row metro-vol"><label for="metro-vol">Volume du clic</label><input type="range" id="metro-vol" min="0" max="100" step="1" value="70"></div>
+    <label class="switch"><span>Précompte au départ</span><input type="checkbox" id="count-on" role="switch"></label>
+    <div class="seg" role="radiogroup" aria-label="Durée du précompte">
+      <label><input type="radio" name="count-bars" id="count-bars-1" value="1" checked><span>1 mesure</span></label>
+      <label><input type="radio" name="count-bars" id="count-bars-2" value="2"><span>2 mesures</span></label>
+    </div>
+    <p id="metro-note" class="muted" role="status"></p>
     <p class="muted">La hauteur reste la même quand on change la vitesse. La vitesse est mémorisée d'un morceau à l'autre.</p>
     <div class="row"><button value="close" class="primary" formnovalidate>Fermer</button></div>
   </form>

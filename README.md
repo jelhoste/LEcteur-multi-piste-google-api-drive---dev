@@ -41,8 +41,15 @@ Le mode « Automatique » suit le système (sombre, clair, et contraste élevé 
 - **Clavier** : Espace lecture/pause, flèches gauche/droite mesure précédente/suivante.
 - Chaque fonctionnalité se masque seule si le fichier correspondant est absent ou illisible.
 
-## Interface (version 1.8.7)
+## Interface (version 1.9.0)
 Barre d'onglets en bas : **Mixeur** (accords, structure condensée, pistes avec icône — appui court muet, appui long solo —, ⏪ ▶ ⏩, boutons Vitesse / Tonalité / Boucle), **Structure** (cartes étalées avec accords et curseur), **Paroles**, **Guitare** (à venir), **Menu** (morceaux, réglages, mode gaucher, écran allumé, boutons Solo). Vitesse en BPM avec règle à faire glisser ; boucle réglée par les cartes de structure ; ±10 s calé sur la mesure, appui long = section. Détails dans `compte-rendu-lecteur-multipistes.md`.
+
+## Métronome et précompte (1.9.0)
+Dans la fenêtre **Vitesse** : un interrupteur **Métronome** (clic sur chaque temps de la grille du morceau, temps 1 plus aigu, qui suit la vitesse et les boucles), un **volume du clic** (indépendant, passe ensuite par le volume général) et un interrupteur **Précompte** avec le choix **1 ou 2 mesures**.
+- Précompte : à chaque départ voulu (bouton ▶, déplacement dans le morceau, saut de mesure ou de section), le lecteur joue 1 ou 2 mesures de clics au tempo (et au nombre de temps) de la mesure d'arrivée, puis le morceau démarre exactement sur le temps 1 suivant. Reprendre après une pause au milieu d'une mesure repart du début de cette mesure.
+- Avec le précompte, tout déplacement se cale sur un début de mesure (quel que soit le réglage de calage). Pas de précompte pour les relances techniques (changement de vitesse ou de tonalité, démuter une piste, boucle modifiée) ni au raccord de la boucle.
+- Métronome seul : on entend le clic en continu. Précompte seul : on n'entend que le précompte. Sans grille de temps, les deux interrupteurs sont grisés.
+- Code : `metro.js` (calculs purs : `barStartFor`, `countInPlan`, `createClickScheduler`), branché dans `startFrom()` et dans le minuteur de `app.js`.
 
 ## Vitesse et transposition
 - **Vitesse** de 50 à 150 % **sans changer la hauteur**, et **transposition** de −12 à +12 demi-tons (boutons −1 ton, −½, +½, +1 ton), dans les volets **Vitesse** et **Tonalité** du Mixeur. La vitesse est mémorisée ; la transposition revient à 0 à chaque morceau.
@@ -67,5 +74,5 @@ Le nom du morceau est lu dans `infos.json`. Un dossier racine unique dans le ZIP
 `racine/<Artiste - Titre>/` contenant les `.json`, `paroles.lrc`, `original.opus`, un fichier `_termine`, et un sous-dossier `stems/` avec les `.opus` (même commande d'encodage pour tous).
 
 ## Fichiers
-`index.html`, `styles.css`, `themes.js`, `app.js` (interface + lecteur), `ogg-opus.js` (index Ogg Opus), `drive.js` (Drive + cache IndexedDB), `meta.js` (grille de temps, accords, paroles, sections, transposition des accords), `stretch.js` + `stretch-core.js` + `stretch-worker.js` + `vendor/signalsmith/` (vitesse et transposition),
+`index.html`, `styles.css`, `themes.js`, `app.js` (interface + lecteur), `ogg-opus.js` (index Ogg Opus), `drive.js` (Drive + cache IndexedDB), `metro.js` (métronome, précompte), `meta.js` (grille de temps, accords, paroles, sections, transposition des accords), `stretch.js` + `stretch-core.js` + `stretch-worker.js` + `vendor/signalsmith/` (vitesse et transposition),
 `vendor/opus-decoder.min.js` (décodeur Opus WASM, embarqué pour le hors ligne), `converter.js` + `converter-lib.js` + `convert-core.js` + `opus-pack.js` + `convert-worker.js` + `vendor/ffmpeg` + `vendor/opus` (convertisseur), `LICENSES.md`, `sw.js`, `version.js`, `manifest.webmanifest`, `icons/`.

@@ -229,3 +229,19 @@ body[data-hand=left] .timeline .mastervol{order:3}
 
 /* ===== 1.8.5 : piste « Mix original » masquée par défaut (option dans le Menu) ===== */
 #tracks[data-hide-original] .track[data-kind=original]{display:none}
+
+/* ===== 1.9.0 : métronome et précompte (fenêtre Vitesse) ===== */
+.switch{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:46px;cursor:pointer}
+.switch input[type=checkbox]{-webkit-appearance:none;appearance:none;flex:none;width:50px;height:28px;margin:0;border-radius:14px;border:2px solid var(--border);background:var(--surface-2);position:relative;cursor:pointer}
+.switch input[type=checkbox]::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--muted);transition:transform .15s}
+.switch input[type=checkbox]:checked{background:var(--accent);border-color:var(--accent)}
+.switch input[type=checkbox]:checked::after{transform:translateX(22px);background:var(--on-accent)}
+.switch input:disabled{opacity:.45;cursor:default}
+.metro-vol{flex-wrap:nowrap;align-items:center;gap:10px}.metro-vol label{flex:none}.metro-vol input[type=range]{flex:1 1 auto;min-width:0}
+.seg{display:flex;gap:8px;margin:2px 0 8px}.seg label{flex:1;display:block}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg span{display:flex;align-items:center;justify-content:center;min-height:44px;border:2px solid var(--border);border-radius:10px;font-weight:600;cursor:pointer}
+.seg input:checked+span{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.seg input:focus-visible+span{outline:var(--focus-w) solid var(--focus);outline-offset:2px}
+.seg input:disabled+span{opacity:.45;cursor:default}
+@media (prefers-reduced-motion:reduce){.switch input[type=checkbox]::after{transition:none}}

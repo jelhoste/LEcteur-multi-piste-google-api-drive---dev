@@ -3,6 +3,7 @@ import { createDrive, createCache, loadSong, parseFolderId } from './drive.js';
 import { buildMeta, snapBeat, snapBar, barBeatAt, prevBar, nextBar, chordAt, bpmAt, lyricAt, sectionsView, sectionAt, shortLabel, transposeChord, transposeKey, spellingFor, chordsInRange, barsInRange, lastLE, firstGT } from './meta.js';
 import { kindOf, KIND_LABEL, iconSvg, pressable, tempoModel, loopTap, loopLong, sectionJump, structScroll } from './ui-helpers.js';
 import { createPool, delayOut } from './stretch.js';
+import { barStartFor, countInPlan, createClickScheduler } from './metro.js';
 
 const $ = id => document.getElementById(id);
 const T = window.Themes;
@@ -32,6 +33,31 @@ const loopA = () => Math.round($('a').value * SR), loopB = () => Math.round($('b
 function loopState() { const x = loopA(), y = loopB(); return { on: $('loop').checked && y > x + SR * 0.1, a: x, b: y }; }
 
 let master = null;
+// ---- métronome et précompte (réglages dans la fenêtre Vitesse) : les clics passent par leur propre volume, puis par le volume général
+const metro = { on: false, vol: 70, count: false, bars: 1 };
+let clickGain = null, clickBufs = null, clickLive = new Set(), clickSched = null;
+const metroGainValue = () => (metro.vol / 100) ** 2;
+function makeClickBufs() {                                           // deux petits « toc » synthétiques : temps 1 plus aigu et plus long
+  const mk = (freq, ms, amp) => {
+    const n = Math.round(SR * ms / 1000), d = new Float32Array(n), b = ctx.createBuffer(1, n, SR);
+    for (let i = 0; i < n; i++) d[i] = amp * Math.sin(2 * Math.PI * freq * i / SR) * Math.exp(-i / (SR * 0.009)) * Math.min(1, i / (SR * 0.001));
+    b.copyToChannel(d, 0); return b;
+  };
+  return { accent: mk(1760, 70, 0.9), beat: mk(1175, 55, 0.75) };
+}
+function playClick(when, accent) {
+  if (!clickBufs) clickBufs = makeClickBufs();
+  const s = ctx.createBufferSource(); s.buffer = accent ? clickBufs.accent : clickBufs.beat; s.connect(clickGain);
+  s.start(Math.max(when, ctx.currentTime)); clickLive.add(s); s.onended = () => clickLive.delete(s);
+}
+function stopClicks() { clickLive.forEach(s => { s.onended = null; try { s.stop(); } catch (e) {} }); clickLive.clear(); clickSched = null; }
+function clickPump() { if (playing && clickSched) clickSched.next(ctx.currentTime + AHEAD).forEach(c => playClick(c.when, c.accent)); }
+function startClicks(src, when) {                                    // clics du métronome à partir de la position `src` entendue à l'instant `when`
+  clickSched = null;
+  if (!metro.on || !M || !M.beats) return;
+  clickSched = createClickScheduler(M.beats, { src, when, rate: speed }, loopState(), dur(), SR);
+  clickPump();
+}
 const masterValue = () => ($('master').value / 100) ** 2;           // courbe quadratique : réglage plus fin dans les faibles volumes
 function buildGains() {                                             // un GainNode par piste, à refaire à chaque nouveau morceau ; toutes passent par le volume général
   gains.forEach(g => g.disconnect());
@@ -41,6 +67,7 @@ function ensureCtx() {
   if (ctx) return;
   ctx = new AudioContext({ sampleRate: SR });
   master = ctx.createGain(); master.gain.value = masterValue(); master.connect(ctx.destination);
+  clickGain = ctx.createGain(); clickGain.gain.value = metroGainValue(); clickGain.connect(master);
   if (ctx.sampleRate !== SR) msg('Attention : le contexte audio tourne à ' + ctx.sampleRate + ' Hz au lieu de 48000.');
   buildGains();
 }
@@ -55,7 +82,7 @@ function applyGain(i, g = gains[i]) { g.gain.value = isMuted(i) ? 0 : $('v' + i)
 // Les icônes ▶ / ⏸ sont des éléments SVG : ils n'ont pas de propriété `hidden` (l'affecter ne change rien à l'écran) ; on passe par l'attribut.
 function showEl(el, on) { if (on) el.removeAttribute('hidden'); else el.setAttribute('hidden', ''); }
 function setPlayLabel(on) { $('play-label').textContent = on ? 'Pause' : 'Lecture'; showEl($('ic-play'), !on); showEl($('ic-pause'), on); }
-function stopSources() { live.forEach(s => { s.onended = null; try { s.stop(); } catch (e) {} }); live.clear(); segs = []; endWhen = 0; }
+function stopSources() { live.forEach(s => { s.onended = null; try { s.stop(); } catch (e) {} }); live.clear(); stopClicks(); segs = []; endWhen = 0; }
 function curPos() {
   if (!playing) return posSample;
   const now = ctx.currentTime; let g = null;
@@ -73,15 +100,23 @@ function pause() {
   posSample = Math.min(curPos(), dur()); playing = false; gen++;
   clearInterval(timer); stopSources(); setPlayLabel(false); releaseWake();
 }
-function startFrom(sample) {
+function startFrom(sample, userStart = false) {                       // userStart : départ voulu par l'utilisateur (lecture, déplacement) : le précompte est joué avant
   gen++; stopSources(); playing = true;
   // Pistes traitées : toutes à vitesse normale ; étirées, seulement les non muettes (le calcul est le coût principal). Démuter une piste écartée relance la lecture.
   activeIdx = tracks.map((_, i) => i).filter(i => !stretching() || !isMuted(i));
   st = stretching() ? { speed, semis, cumIn: 0, cumOut: 0, kept: 0, pre: 0, fed: [], opened: false, flushed: false, discardLeft: 0, quality: $('stretch-quality').value } : null;
   if (!st) disposePool();
-  cursorSample = sample; cursorWhen = ctx.currentTime + startMargin * (st ? 2 : 1);      // marge pour décoder (et étirer) le premier bloc
+  let ci = null;                                                    // précompte : on part du début de la mesure (la plus proche, ou celle en cours) et on compte 1 ou 2 mesures avant
+  if (userStart && metro.count && M && M.beats) {
+    const t0 = barStartFor(M.beats, sample / SR); sample = Math.round(t0 * SR); posSample = sample; $('pos').value = sample;
+    ci = countInPlan(M.beats, t0, metro.bars);
+  }
+  const lead = startMargin * (st ? 2 : 1);                          // marge pour décoder (et étirer) le premier bloc
+  cursorSample = sample; cursorWhen = ctx.currentTime + lead + (ci ? ci.total / speed : 0);
+  if (ci) ci.clicks.forEach(c => playClick(ctx.currentTime + lead + c.at / speed, c.accent));   // le dernier temps du précompte précède le premier temps du morceau
+  startClicks(sample, cursorWhen);
   setPlayLabel(true); lockWake();                                   // avant pump() : si le premier bloc échoue tout de suite, pause() remet « Lecture »
-  clearInterval(timer); timer = setInterval(pump, 150); pump();
+  clearInterval(timer); timer = setInterval(() => { pump(); clickPump(); }, 150); pump();
 }
 const srcOf = (fed, n) => { const e = fed.findLast(f => f.n0 <= n) || fed[0]; return e ? Math.max(0, e.src + Math.min(n - e.n0, e.len)) : 0; };   // position source du n-ième échantillon d'entrée
 function getPool(quality) {
@@ -186,13 +221,13 @@ let M = null, view = [], mapBtns = [], cardEls = [], loopBtns = [], lyEls = [];
 let ui = { bb: '', sec: -2, cur: -1, chord: '', line: -2, word: -2, time: '' };
 const noMeta = () => { M = null; view = []; ui = { bb: '', sec: -2, cur: -1, chord: '', line: -2, word: -2, time: '' }; renderStructure(); renderLyrics(); $('now').hidden = true; updateTabs(); syncTempoUI(); };
 
-function snapTime(t, mode = $('snap').value) {
+function snapTime(t, mode = metro.count ? 'bar' : $('snap').value) {   // avec le précompte, on ne se cale jamais ailleurs qu'au début d'une mesure
   if (!M || !M.beats || mode === 'free') return t;
   return mode === 'bar' ? snapBar(M.beats, t) : snapBeat(M.beats, t);
 }
 function seekTo(t, snap = true) {
   t = Math.max(0, Math.min(t, dur() / SR)); if (snap) t = snapTime(t);
-  posSample = Math.round(t * SR); $('pos').value = posSample; if (playing) startFrom(posSample);
+  posSample = Math.round(t * SR); $('pos').value = posSample; if (playing) startFrom(posSample, true);
 }
 const mkEl = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
 function setCls(el, cls, on) { const l = new Set(String(el.className || '').split(' ').filter(Boolean)); if (on) l.add(cls); else l.delete(cls); el.className = [...l].join(' '); }
@@ -416,7 +451,7 @@ $('show-original').onchange = () => {
 };
 $('solo-btns').checked = store.get('soloBtns') === '1';
 $('solo-btns').onchange = () => { store.set('soloBtns', $('solo-btns').checked ? '1' : '0'); if (tracks.length) buildTrackRows({ m: tracks.map((_, i) => $('m' + i).checked), v: tracks.map((_, i) => $('v' + i).value) }); };
-$('play').onclick = async () => { if (playing) { pause(); return; } ensureCtx(); await ctx.resume(); msg(''); startFrom(posSample); };
+$('play').onclick = async () => { if (playing) { pause(); return; } ensureCtx(); await ctx.resume(); msg(''); startFrom(posSample, true); };
 $('pos').oninput = () => { dragging = true; };
 $('pos').onchange = () => { dragging = false; seekTo(+$('pos').value / SR); };
 const goPrevBar = () => { if (!tracks.length) return; seekTo(M && M.beats ? prevBar(M.beats, curTime()) : curTime() - 2, false); };
@@ -574,7 +609,29 @@ function syncTempoUI() {                                            // met l'int
   $('keyname').textContent = key ? 'Tonalité ' + keyNow : '';
   if (!stretching()) { load = 0; $('tempo-info').textContent = ''; }
   $('song-info').textContent = songInfoText();
+  syncMetroUI();
 }
+// ---- fenêtre Vitesse : métronome, volume du clic, précompte (1 ou 2 mesures)
+metro.on = store.get('metro') === '1'; metro.count = store.get('countOn') === '1'; metro.bars = store.get('countBars') === '2' ? 2 : 1;
+{ const v = parseInt(store.get('metroVol'), 10); metro.vol = Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : 70; }
+$('metro-on').checked = metro.on; $('count-on').checked = metro.count; $('metro-vol').value = String(metro.vol);
+$('count-bars-1').checked = metro.bars === 1; $('count-bars-2').checked = metro.bars === 2;
+function syncMetroUI() {                                             // sans grille de temps (ni mesures), ni métronome ni précompte
+  const ok = !!(M && M.beats);
+  $('metro-on').disabled = !ok; $('count-on').disabled = !ok; $('count-bars-1').disabled = !ok || !metro.count; $('count-bars-2').disabled = !ok || !metro.count;
+  $('metro-note').textContent = !ok ? 'Indisponible : ce morceau n\'a pas de grille de temps.' : metro.count ? 'Avec le précompte, les déplacements dans le morceau se calent toujours sur le début d\'une mesure.' : '';
+}
+$('metro-on').onchange = () => {
+  metro.on = $('metro-on').checked; store.set('metro', metro.on ? '1' : '0');
+  if (playing) { stopClicks(); if (metro.on) startClicks(Math.round(curPos()), ctx.currentTime); }   // activé ou coupé en pleine lecture : les clics suivent la position entendue
+};
+$('metro-vol').oninput = () => { metro.vol = +$('metro-vol').value; store.set('metroVol', String(metro.vol)); if (clickGain) clickGain.gain.value = metroGainValue(); };
+$('metro-vol').onchange = async () => { if (playing) return; ensureCtx(); await ctx.resume(); playClick(ctx.currentTime + 0.03, true); };   // un clic d'essai quand on lâche le curseur à l'arrêt
+$('count-on').onchange = () => {
+  metro.count = $('count-on').checked; store.set('countOn', metro.count ? '1' : '0'); syncMetroUI();
+  if (metro.count && !playing && M && M.beats && tracks.length) seekTo(posSample / SR);             // à l'arrêt : on se cale tout de suite sur un début de mesure
+};
+$('count-bars-1').onchange = $('count-bars-2').onchange = () => { metro.bars = $('count-bars-2').checked ? 2 : 1; store.set('countBars', String(metro.bars)); };
 function showLoad() {
   const pct = Math.round(load * 100);
   $('tempo-info').textContent = 'Calcul : ' + pct + ' % du temps disponible' + (load > 0.85 ? ' — juste. Essayez la qualité « économique » (Réglages) ou une vitesse plus proche de l\'original.' : '');
